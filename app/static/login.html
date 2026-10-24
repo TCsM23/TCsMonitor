@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05070D">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/static/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TCsMonitor">
+
+<title>TCsMonitor · Login</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  .login-page-wrap { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  .login-window-box { width: min(360px, 100%); }
+  .login-brand-title { font: 700 34px var(--font-title); color: var(--up); text-align: center; margin: 0 0 16px; }
+</style>
+</head>
+<body>
+<div class="login-page-wrap">
+  <div>
+    <h1 class="login-brand-title">TCsMonitor<span class="app-status-cursor">_</span></h1>
+    <section class="app-window login-window-box">
+      <header class="app-window-titlebar"><h2>Access</h2></header>
+      <form class="app-window-body app-form" id="login-form">
+        <label>Password <input type="password" name="password" required autofocus autocomplete="current-password"></label>
+        <div class="app-form-error" id="login-error"></div>
+        <button class="app-button">Log in &gt;</button>
+      </form>
+    </section>
+  </div>
+</div>
+<script>
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = e.target.querySelector("button");
+  btn.disabled = true;
+  const res = await fetch("/login", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: new FormData(e.target).get("password") }) });
+  btn.disabled = false;
+  if (res.ok) { location.href = "/"; return; }
+  const body = await res.json().catch(() => ({}));
+  document.getElementById("login-error").textContent = body.detail || "Login failed";
+});
+</script>
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>

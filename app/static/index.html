@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05070D">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/static/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TCsMonitor">
+
+<title>TCsMonitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/chart.umd.min.js" defer></script>
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<div class="app-shell">
+
+  <header class="app-status-bar">
+    <div class="app-status-brand">TCsMonitor<span class="app-status-cursor">_</span></div>
+    <nav class="app-nav-tabs" id="nav">
+      <button class="app-nav-tab active" data-view="monitor">Monitor</button>
+      <button class="app-nav-tab" data-view="packets">Packets</button>
+      <button class="app-nav-tab" data-view="lan">LAN</button>
+      <button class="app-nav-tab" data-view="tools">Tools</button>
+      <button class="app-nav-tab" data-view="system">System</button>
+    </nav>
+    <div class="app-status-meta">
+      <span class="app-status-dot" id="conn-dot"></span><span id="conn-text">connecting</span>
+      <span class="app-status-sep">|</span>round <span id="round">0</span>
+      <span class="app-status-sep">|</span><span id="clock">--:--:--</span>
+      <button class="app-mini" id="install-app" title="Install TCsMonitor as an app" hidden>install</button>
+      <button class="app-mini" id="logout" title="Log out">exit</button>
+    </div>
+  </header>
+
+  <!-- ============ MONITOR ============ -->
+  <main class="app-view main-view-grid active" data-view="monitor">
+    <section class="app-window main-hosts-window">
+      <header class="app-window-titlebar"><h2>Hosts</h2>
+        <button class="app-window-action" id="check-now" title="Run a round now">Run</button>
+        <button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body main-hosts-scroll">
+        <table class="app-table main-hosts-table">
+          <thead><tr><th>Status</th><th>Name</th><th class="col-sm-hide">Check</th><th>Latency</th>
+            <th>Loss</th><th class="col-sm-hide">Jitter</th><th class="col-md-hide">Uptime</th>
+            <th class="col-md-hide">Cert</th><th></th></tr></thead>
+          <tbody id="host-rows"><tr><td colspan="9" class="app-table-empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="app-window main-numbers-window">
+      <header class="app-window-titlebar"><h2>Numbers</h2><button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body">
+        <div class="main-numbers-top">
+          <div class="main-readout-box" id="readout"><span class="main-readout-label">Avg uptime 24h</span><b id="n-uptime">--.--%</b></div>
+          <div class="main-gauge-wrap"><div class="main-gauge-ring" id="cpu-gauge"></div>
+            <div class="main-gauge-text"><b id="n-cpu">-</b><small>cpu</small></div></div>
+        </div>
+        <div class="main-status-chips">
+          <span class="app-pill up">up <b id="n-up">0</b></span>
+          <span class="app-pill down" style="animation:none">down <b id="n-down">0</b></span>
+          <span class="app-pill slow">slow <b id="n-slow">0</b></span>
+        </div>
+        <div class="main-numbers-grid">
+          <div class="main-numbers-cell"><span>Avg latency</span><b id="n-lat">-</b></div>
+          <div class="main-numbers-cell"><span>Avg loss</span><b id="n-loss">-</b></div>
+          <div class="main-numbers-cell"><span>Avg jitter</span><b id="n-jit">-</b></div>
+          <div class="main-numbers-cell"><span>RAM</span><b id="n-mem">-</b></div>
+          <div class="main-numbers-cell"><span>Net ↑</span><b id="n-upbps">-</b></div>
+          <div class="main-numbers-cell"><span>Net ↓</span><b id="n-downbps">-</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="app-window main-chart-window">
+      <header class="app-window-titlebar"><h2 id="chart-title">Latency</h2><button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body">
+        <p class="app-hint" id="chart-hint">Select a host to see its latency history.</p>
+        <div class="main-chart-holder"><canvas id="latency-chart"></canvas></div>
+        <div class="main-timing-wrap" id="timing-wrap" hidden>
+          <div class="main-timing-label">Last request: DNS → TCP → TLS → first byte</div>
+          <div class="main-timing-bar" id="timing-bar"></div>
+          <div class="main-timing-legend" id="timing-legend"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="app-window main-add-window">
+      <header class="app-window-titlebar"><h2>Add host</h2><button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <form class="app-window-body app-form" id="add-form">
+        <label>Name <input name="name" required placeholder="Home router" maxlength="60"></label>
+        <label>Check
+          <select name="check_type" id="type-select">
+            <option value="ping">Ping (ICMP)</option>
+            <option value="tcp">TCP port</option>
+            <option value="http">HTTP(S) URL</option>
+          </select></label>
+        <label>Address <input name="address" id="addr-input" required placeholder="192.168.1.1"></label>
+        <label id="port-label" hidden>Port <input name="port" type="number" min="1" max="65535" placeholder="80"></label>
+        <div class="app-form-error" id="form-error"></div>
+        <button class="app-button">Add &gt;</button>
+        <p class="app-hint">Only monitor devices you own or have permission to test.</p>
+      </form>
+    </section>
+
+    <section class="app-window main-log-window">
+      <header class="app-window-titlebar"><h2>Log</h2><button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body main-log-scroll">
+        <table class="app-table main-log-table">
+          <thead><tr><th>Time</th><th>ID</th><th>Task</th></tr></thead>
+          <tbody id="log-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ PACKETS ============ -->
+  <main class="app-view packets-view-grid" data-view="packets">
+    <section class="app-window packets-control-window">
+      <header class="app-window-titlebar"><h2>Capture</h2><button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body">
+        <div class="packets-control-row">
+          <button class="app-button" id="pk-start">Start</button>
+          <button class="app-button app-button-ghost" id="pk-stop">Stop</button>
+          <button class="app-button app-button-ghost" id="pk-pause">Pause view</button>
+          <input class="packets-control-search" id="pk-search" placeholder="filter: ip, port, text…">
+        </div>
+        <div class="packets-filter-chips" id="pk-chips"></div>
+        <p class="app-hint" id="pk-status">Captures this machine's traffic. Needs Administrator (Windows) or root / CAP_NET_RAW (Linux).</p>
+        <div class="packets-proto-bar" id="pk-bar"></div>
+      </div>
+    </section>
+    <section class="app-window packets-log-window">
+      <header class="app-window-titlebar"><h2>Packet log</h2><button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body packets-log-scroll">
+        <table class="app-table packets-log-table">
+          <thead><tr><th>Time</th><th class="col-sm-hide">Source</th><th class="col-sm-hide">Destination</th>
+            <th>Proto</th><th class="col-md-hide">Len</th><th>Info</th></tr></thead>
+          <tbody id="pk-rows"><tr><td colspan="6" class="app-table-empty">Not capturing.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ LAN ============ -->
+  <main class="app-view lan-view-grid" data-view="lan">
+    <section class="app-window lan-scan-window">
+      <header class="app-window-titlebar"><h2>Discover</h2><button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body app-form">
+        <label>Network <select id="lan-net"></select></label>
+        <label>or CIDR <input id="lan-cidr" placeholder="192.168.1.0/24"></label>
+        <button class="app-button" id="lan-scan">Scan &gt;</button>
+        <p class="app-hint" id="lan-status">Ping sweep + ARP table. Private ranges only, /22 or smaller.</p>
+      </div>
+    </section>
+    <section class="app-window lan-devices-window">
+      <header class="app-window-titlebar"><h2>Devices</h2><button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body lan-devices-scroll">
+        <table class="app-table lan-devices-table">
+          <thead><tr><th>IP</th><th>MAC</th><th class="col-sm-hide">Vendor</th><th class="col-md-hide">First seen</th>
+            <th class="col-md-hide">Last seen</th><th>Trust</th></tr></thead>
+          <tbody id="lan-rows"><tr><td colspan="6" class="app-table-empty">No scan yet.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ TOOLS ============ -->
+  <main class="app-view tools-view-grid" data-view="tools">
+    <section class="app-window tools-trace-window">
+      <header class="app-window-titlebar"><h2>Traceroute</h2><button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body">
+        <form class="tools-inline-form" id="trace-form"><input name="host" placeholder="1.1.1.1" required><button class="app-button">Trace &gt;</button></form>
+        <p class="app-hint" id="trace-status">Shows each router hop and where latency jumps.</p>
+        <div id="trace-out"></div>
+      </div>
+    </section>
+    <section class="app-window tools-subnet-window">
+      <header class="app-window-titlebar"><h2>Subnet calc</h2><button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body">
+        <form class="tools-inline-form" id="subnet-form"><input name="cidr" placeholder="192.168.1.130/26" required><button class="app-button">Calc &gt;</button></form>
+        <div id="subnet-out"></div>
+      </div>
+    </section>
+    <section class="app-window tools-mtu-window">
+      <header class="app-window-titlebar"><h2>MTU check</h2><button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body">
+        <form class="tools-inline-form" id="mtu-form"><input name="host" placeholder="192.168.1.1" required><button class="app-button">Test &gt;</button></form>
+        <p class="app-hint" id="mtu-status">Pings with don't-fragment set, shrinking until it fits.</p>
+        <div id="mtu-out"></div>
+      </div>
+    </section>
+    <section class="app-window tools-speed-window">
+      <header class="app-window-titlebar"><h2>Speed test</h2><button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body">
+        <button class="app-button" id="speed-run">Run download test &gt;</button>
+        <p class="app-hint" id="speed-status">Downloads up to 25 MB for 15 s max.</p>
+        <div class="tools-big-number" id="speed-out">-- <small>Mbps</small></div>
+      </div>
+    </section>
+    <section class="app-window tools-wifi-window">
+      <header class="app-window-titlebar"><h2>Wi-Fi</h2>
+        <button class="app-window-action" id="wifi-refresh">Refresh</button>
+        <button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body" id="wifi-out"><p class="app-hint">Loading…</p></div>
+    </section>
+  </main>
+
+  <!-- ============ SYSTEM ============ -->
+  <main class="app-view system-view-grid" data-view="system">
+    <section class="app-window system-iface-window">
+      <header class="app-window-titlebar"><h2>Interfaces</h2>
+        <button class="app-window-action" id="iface-refresh">Refresh</button>
+        <button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body system-scroll">
+        <table class="app-table">
+          <thead><tr><th>Name</th><th>IPv4</th><th class="col-sm-hide">Subnet</th><th class="col-sm-hide">MAC</th>
+            <th class="col-md-hide">MTU</th><th class="col-md-hide">Speed</th><th>State</th></tr></thead>
+          <tbody id="iface-rows"></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="app-window system-conn-window">
+      <header class="app-window-titlebar"><h2>Connections</h2>
+        <button class="app-window-action" id="conn-refresh">Refresh</button>
+        <button class="app-window-close" aria-label="Collapse">✕</button></header>
+      <div class="app-window-body">
+        <div class="system-conn-counts" id="conn-counts"></div>
+        <div class="system-scroll">
+          <table class="app-table">
+            <thead><tr><th>Proto</th><th class="col-sm-hide">Local</th><th>Remote</th><th>State</th><th>Process</th></tr></thead>
+            <tbody id="conn-rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="app-toast-stack" id="toasts"></div>
+</body>
+</html>

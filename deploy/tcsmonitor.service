@@ -1,0 +1,26 @@
+# systemd service for a Raspberry Pi / Linux box.
+# Install:  sudo cp deploy/tcsmonitor.service /etc/systemd/system/
+#           sudo systemctl daemon-reload && sudo systemctl enable --now tcsmonitor
+# Logs:     journalctl -u tcsmonitor -f
+# Edit User, paths and TCSM_PASSWORD first.
+
+[Unit]
+Description=TCsMonitor network monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/tcsmonitor
+Environment=TCSM_PASSWORD=change-me
+Environment=TCSM_PORT=8000
+Environment=TCSM_INTERVAL=10
+ExecStart=/home/pi/tcsmonitor/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+Restart=always
+RestartSec=5
+# Lets packet capture work without running the whole app as root.
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
+
+[Install]
+WantedBy=multi-user.target

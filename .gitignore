@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.db
+data/secret.key
+data/server.log
+data/oui.txt
